@@ -66,7 +66,7 @@ struct objc_class : objc_object {
 
 6.`category`与`extension`区别，能给NSObject添加`extension`吗，结果如何？
 ```
-答: extension 是再编译期给类添加属性、方法的。category 是在运行时给类添加方法。
+答: xtension在编译的时候，它的数据就已经包含在类信息中;category是在运行时，才会将数据合并到类信息中。
 前者可以添加属性，后者不能添加属性。因为在运行期，对象的内存布局已经确定，如果添加实例变量会破坏类的内部布局，这对编译性语言是灾难性的。不能给NSObject添加extension，你必须有一个类的源码才能添加一个类的extension。
 ```
 
@@ -97,6 +97,9 @@ Method包括以上三个部分。就是SEL与IMP之间做了映射。有了Metho
 load方法只会执行一次，initialize可能被执行多次。
 load方法不走消息发送流程不会和其他方法一样有继承关系，initialize走消息发送流程有继承关系。
 如果分类定义了这俩方法，分类中的load方法会最后调用，分类中的initialize会覆盖子类与父类的。
+
+load: 类先调用，在调用分类。父类先调用，再调用子类。
+initialize: 分类先调用，在调用类。父类先调用，再调用子类。
 ```
 
 11.说一说消息转发的优劣
@@ -104,54 +107,139 @@ load方法不走消息发送流程不会和其他方法一样有继承关系，i
 ## 内存管理
 
 1.`weak`的实现原理？`SideTable`的结构是什么样的
+```
+答: weak_table_t是一个全局weak 引用的表，使用不定类型对象的地址作为 key，用 weak_entry_t 类型结构体对象作为 value 。
+weak是Runtime维护了一个hash(哈希)表，用于存储指向某个对象的所有weak指针。weak表其实是一个hash（哈希）表，Key是所指对象的地址，Value是weak指针的地址（这个地址的值是所指对象指针的地址）数组。
+
+```
 
 2.关联对象的应用？系统如何实现关联对象的
+```
+答：关联对象配合分类，可以给类增加属性变量。关联对象的实现不复杂，保存的方式为一个全局的哈希表，存取都通过查询表找到关联来执行。哈希表的特点就是牺牲空间换取时间，所以执行速度也可以保证。
+
+```
 
 3.关联对象的如何进行内存管理的？关联对象如何实现weak属性？
+```
+答：在objc_setAssociatedObject实际调用的是_object_set_associative_reference
+后者有调用 acquireValue。 首先把新传入的对象，根据协议进行retain/copy，在赋值的过程中获取旧值，在方法结束前release。
 
+使用block捕获的方式
+-(void)setWeakvalue:(NSObject *)weakvalue {
+    __weak typeof(weakvalue) weakObj = weakvalue;
+    typeof(weakvalue) (^block)() = ^(){
+        return weakObj;
+    };
+    objc_setAssociatedObject(self, weakValueKey, block, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+-(NSObject *)weakvalue {
+    id (^block)() = objc_getAssociatedObject(self, weakValueKey);
+    return block();
+}
+```
 4.`Autoreleasepool`的原理？所使用的数据结构是什么？
+```
+答: 简单说是双向链表，每张链表头尾相接，有 parent、child指针
+每创建一个池子，会在首部创建一个 哨兵 对象,作为标记
+最外层池子的顶端会有一个next指针。当链表容量满了，就会在链表的顶端，并指向下一张表。
+```
 
 5.`ARC`的实现原理？`ARC`对`retain`和`release`做了哪些优化
+```
+答：我们都知道，ARC是编译器特性，程序在编译的时候，编译器帮我们在合适的地方插入retain、release等代码以管理对象的引用计数，从而达到自动管理对象生命周期的目的。但是只有编译器是无法单独完成这一工作的，还需要OC运行时库的配合协助。
+由于编译器自己加入的retain与release，所以都是c语言的底层实现，不经过发送消息，更高效。
+
+```
 
 6.`ARC`下哪些情况会造成内存泄漏？
-
+```
+答: 循环引用，delegate block里用self等。CoreFundation下的要自己手动release的未手动释放的。
+```
 ## 其他
 
 1.`Method Swizzle`的注意事项
+```
+答: 如果交换方法的原方法没有实现，需要实现一个空操作。不然如果外界调用新方法走旧的实现会出现crash。如果，target不同，方法交换之后方法里的使用了self，类型会变化这时候需要注意。
+```
 
 2.属性修饰符`atomic`的内部实现是怎么样的？能保证线程安全吗？
+```
+答：在set/get方法中使用spinlock_t自旋锁实现。atomic通过这种方法，在运行时保证 set,get方法的原子性。仅仅是保证了set,get方法的原子性。这种线程是不安全的。    self.intA = self.intA + 1;非原子性。
+```
 
 3.iOS内省的几个方法有哪些？内部实现原理是什么？
+```
+答: [object isKindOfClass]、[object isMemberOfClass]
+respondsToSelector、instancesRespondToSelector
+通过对象isa指针，找到类对象，查看类对象的名称与传入的类对象名称是否一致。
+```
 
 4.`class`、`objc_getClass`、`object_getClass`方法有什么区别？
+```
+答:
+object_getClass：获取isa的指向
+self.class: self是实例对象返回类对象，如果是类返回类本身。
+```
 
 # NSNotification相关
 
 苹果并没有开源相关代码，但是可以读下[GUNStep](https://github.com/gnustep/libs-base)的源码，基本上实现方式很具有参考性
 
 1.实现原理（结构设计、通知如何存储的、`name&observer&SEL`之间的关系等）
+```
+答: 在iOS中，NSNotification & NSNotificationCenter是使用观察者模式来实现的用于跨层传递消息。
+将观察者注册到NSNotificatinonCenter的通知调度表中，然后发送通知时利用标识符name和object识别出调度表中的观察者，然后调用相应的观察者的方法，即传递消息（在Objective-C中对象调用方法，就是传递消息，消息有name或者selector，可以接受参数，而且可能有返回值），如果是基于block创建的通知就调用NSNotification的block。
+// 猜想
+通知模型 存为数组，不同name的通知 分成不同数组，再以name为key存放到NSSet中。
+```
 
 2.通知的发送是同步的还是异步的？
+```
+答：默认同步的，但是也可以异步。
+
+NSNotification *notification = [NSNotification notificationWithName:kNotificationName
+                                                                 object:@"通知说话开始"];
+    [[NSNotificationQueue defaultQueue] enqueueNotification:notification
+                                               postingStyle:NSPostASAP];
+```
 
 3.`NSNotificationCenter`接受消息与发送消息是在同一个线程吗？如何异步发送消息?
+```
+答：在同一个线程。使用NSNotificationQueue来进行异步发送（NSPostWhenIdle、NSPostASAP）
+```
+
 
 4.`NSNotificationQueue`是异步还是同步发送？在哪个线程同步
+```
+答：NSPostNow:同步发送，NSPostWhenIdle、NSPostASAP:异步发送。在所发通知那个线程进行同步。
+```
 
 5.`NSNotificationQueue`和`runloop`的关系
 
 6.如何保证通知接收的线程是主线程
+```
+答：在主线程发送通知，或者在接收方法中回到主线程。
+```
 
 7.页面销毁后不移除通知会崩溃吗
+```
+答：会崩溃。会出现找不到方法的异常。
+```
 
 8.多次添加同一个通知会是什么结果？多次移除通知呢？
+```
+答：多次添加一个通知，接收通知时会调用多次。多次移除没问题。
+```
 
 9.下面的方式能接收到通知吗？为什么
-
 ```objectivec
 // 发送通知
 [NSNotificationCenter.defaultCenter postNotificationName:@"TestNotification" object:nil];
 // 接收通知
 [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleNotification) name:@"testNotification" object:nil];
+```
+```
+答：不能，因为，添加观察者在发送通知之后进行。
 ```
 
 # Runloop & KVO
