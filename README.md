@@ -249,28 +249,129 @@ NSNotification *notification = [NSNotification notificationWithName:kNotificatio
 `runloop`对于一个标准的iOS开发来说都不陌生，应该说熟悉`runloop`是标配，下面就随便列几个典型的问题吧
 
 1.app如何接收到触摸事件的
+```
+答：1.发生触摸事件时，系统会将该事件加入由UIApplication管理的事件队列中。
+2.UIApplication会从队列中取出最前面的事件，并将事件分发下去，通常先发送给应用程序主窗口keywindow;
+3.主窗口会在视图层次中找到一个最适合的view来处理这次事件，找到最适合的view之后就会调用视图控件的touches方法来作具体的事件处理。
+```
+*注意：事件的传递是从上到下（父控件到子控件），事件的响应是从下到上（顺着响应者链条向上传递：子控件到父控件。*
 
 2.为什么只有主线程的`runloop`是开启的
-
+```
+答：因为主线程是需要不停处理用户事件等各种source。所以需要开启runloop保活。
+```
 3.为什么只在主线程刷新UI
+```
+答：安全+效率：因为UIKit框架不是线程安全的框架，当在多个线程进行UI操作，有可能出现资源抢夺，导致问题。
+```
 
 4.`PerformSelector`和`runloop`的关系
+```
+答：如果在子线程中使用performSelector,如果没有开启runloop是不会执行方法的。需要调用currentRunloop 并且写run才行。
+```
+```
+// 监听runloop的代码
+- (void)addObserver
+{
+    /*
+     kCFRunLoopEntry = (1UL << 0),1
+     kCFRunLoopBeforeTimers = (1UL << 1),2
+     kCFRunLoopBeforeSources = (1UL << 2), 4
+     kCFRunLoopBeforeWaiting = (1UL << 5), 32
+     kCFRunLoopAfterWaiting = (1UL << 6), 64
+     kCFRunLoopExit = (1UL << 7),128
+     kCFRunLoopAllActivities = 0x0FFFFFFFU
+     */
+    CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(CFAllocatorGetDefault(), kCFRunLoopAllActivities, YES, 0, ^(CFRunLoopObserverRef observer, CFRunLoopActivity activity) {
+        switch (activity) {
+            case 1:
+            {
+                NSLog(@"进入runloop");
+            }
+                break;
+            case 2:
+            {
+                NSLog(@"timers");
+            }
+                break;
+            case 4:
+            {
+                NSLog(@"sources");
+            }
+                break;
+            case 32:
+            {
+                NSLog(@"即将进入休眠");
+            }
+                break;
+            case 64:
+            {
+                NSLog(@"唤醒");
+            }
+                break;
+            case 128:
+            {
+                NSLog(@"退出");
+            }
+                break;
+            default:
+                break;
+        }
+    });
+    CFRunLoopAddObserver(CFRunLoopGetCurrent(), observer, kCFRunLoopCommonModes);//将观察者添加到common模式下，这样当default模式和UITrackingRunLoopMode两种模式下都有回调。
+    self.obsever  = observer;
+    CFRelease(observer);
+}
+```
 
 5.如何使线程保活
+```
+答：可以给runloop添加一个repeats为YES的timer或者添加一个[runloop addPort:[NSPort port] forMode:NSDefaultRunLoopMode];
+```
 
 ## KVO
 
 同`runloop`一样，这也是标配的知识点了，同样列几个典型的问题。
 
 1.实现原理
+```
+答：实现了一个NSNotificaing_Person类，将实例的isa指针指向NSNotificaing_Person。重写set方法，里面调用willChange 与didChange方法触发观察者对象。
+```
 
 2.如何手动关闭KVO
+```
+答：系统方法
++ (BOOL)automaticallyNotifiesObserversForKey:(NSString *)key {
+    return NO;
+}
+
+```
 
 3.通过KVC修改属性会触发KVO么
+```
+答：会触发(没有set方法也是可以的)
+```
 
 4.哪些情况下使用KVO会出现崩溃，如何防护？
+```
+答：添加了观察者，忘记在对象销毁时移除。只要不是添加和移除不是成对的出现，那么就会出现crash。
+```
 
 5.KVO的优缺点
+```
+答：优点：
+1.能够提供一种简单的方法实现两个对象间的同步。例如：model和view之间同步；
+
+2.能够对非我们创建的对象，即内部对象的状态改变作出响应，而且不需要改变内部对象（SKD对象）的实现；
+
+3.能够提供观察的属性的最新值以及先前值；
+
+4.用key paths来观察属性，因此也可以观察嵌套对象；
+
+5.完成了对观察对象的抽象，因为不需要额外的代码来允许观察值能够被观察
+缺点：
+1.复杂的“IF”语句要求对象正在观察多个值。这是因为所有的观察代码通过一个方法来指向；
+```
 
 # Block
 
