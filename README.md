@@ -433,24 +433,60 @@ NSNotification *notification = [NSNotification notificationWithName:kNotificatio
 主要以GCD为主
 
 1.`iOS`开发中有多少类型的线程？分别对比
+```
+答：GCD、NSThread、NSOperationQueue、pthread 共四种方案
+```
 
 2.`GCD`有哪些队列，默认提供哪些队列
+```
+答：共有五种队列，有串行队列与并行队列，默认提供主队列，以及四种优先级的并行队列。
+```
 
 3.`GCD`有哪些方法api
+```
+dispatch_async()/dispatch_sync()/dispatch_apply()/dispatch_barrier_async()/disptahc_after()/dispatch_group_async()
+/dispatch_io_read()/dispatch_semaphore_signal
+```
 
 4.`GCD`主线程&主队列的关系
+```
+答：主队列里的任务一定是在主线程执行的，但是主线程里执行的任务却不一定在主队列。
+判断是否在主队列的方法可以使用 dispatch_queue_set_specific和 dispatch_get_specific 这一组方法。
+1.第一个测试代码是 DispatchQueue.global().sync(execute: log);
+```
 
 5.如何实现同步，有多少方式就说多少
-
+```
+答：加锁：互斥锁、自旋锁、递归锁、条件锁或者使用信号量也可以做到同步。
+dispatch_barrier_async
+dispatch_semaphore_t
+@sync
+```
 6.`dispatch_once`的实现原理
+```
+答：内部使用信号量，进行线程阻塞，外部传一个int指针地址，当int值为0时执行block 为-1时直接不执行block跳过。其他值则阻塞等待int为-1。
+```
 
 7.什么情况下会死锁
+```
+答：互斥条件（一个资源每次只能被一个进程使用。）、请求和保持条件（一个进程因请求资源而阻塞时，对已获得的资源保持不放。）、不剥夺条件（进程已获得的资源，在末使用完之前，不能强行剥夺。）以及环路等待条件（若干进程之间形成一种头尾相接的循环等待资源关系。）
+在某一个串行队列中，同步的向这个队列添加block会死锁。
+```
 
 8.有哪些类型的线程锁，分别介绍下作用和使用场景
 
 9.`NSOperationQueue`中的`maxConcurrentOperationCount`默认值
-
+```
+答：默认值是-1，就是无限开子线程。
+```
 10.`NSTimer`、`CADisplayLink`、`dispatch_source_t`的优劣
+```
+NSTimer 简单易用 以指定的模式注册到runloop后，每当设定的周期时间到达后，runloop会向指定的target发送一次指定的selector消息。周期设置方式简单，但是精度受runloop的阻塞影响导致不精准。
+CADisplayLink以特定模式注册到runloop后， 每当屏幕显示内容刷新结束的时候，runloop就会向 CADisplayLink指定的target发送一次指定的selector消息， CADisplayLink类对应的selector就会被调用一次。由于屏幕刷新是固定的所以精度比NSTimer高，周期设置不灵活。60/A
+dispatch_source_t精度很高，系统自动触发，系统级别的源。(YYTimer就是这个底层原理)
+
+```
+
 
 # 视图图像相关
 
