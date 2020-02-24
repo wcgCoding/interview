@@ -376,22 +376,57 @@ NSNotification *notification = [NSNotification notificationWithName:kNotificatio
 # Block
 
 1.`block`的内部实现，结构体是什么样的
+```
+答：block本质上也是一个oc对象，他内部也有一个isa指针。block是封装了函数调用以及函数调用环境的OC对象。
+
+```
 
 2.block是类吗？有哪些类型
+```
+答：block可以看作是类，有全局block、栈block和堆block三种类型。
+```
 
 3.一个`int`被`__block`修饰与否的区别？block的变量截获
+```
+答：如果没有被__block修饰，block截获的只是值拷贝；如果使用__block修饰，会生成一个结构体，复制int的引用地址，达到修改数据。
+
+```
 
 4.`block`在修改`NSMutableArray`,需不需要添加`__block`
+```
+答：不需要，因为NSMutableArray不是基本数据类型，在block中是指针传递。
+
+// 基本数据类型，用__block修饰的变量编译后会变成结构体实例,这时候的改值等于是改变了结构体实例的成员变量
+```
 
 5.怎么进行内存管理的
 
 6.`block`可以用strong修饰吗
+```
+答：ARC环境下可以使用strong修饰。
+```
 
 7.解决循环引用为什么要使用`__strong`、`__weak`修饰
+```
+答：__weak 修饰 是为了防止循环引用  __weak 修饰的对象在block内部不会对计数器+1
+是因为某个特定场景， 比如block中使用了用__weak修饰的对象，但是在执行block代码块的时候__weak修饰的对象已经被释放掉了， 这个时候就会报空指针错误，这个时候就要在block内部用__strong修饰弱引用的对象，这样就不会造成空指针异常。
+```
 
 8.`block`发生`copy`时机
+```
+1.调用Block的copy实例方法
+
+2.Block作为函数返回值返回时
+
+3.将Block赋值给附有__strong修饰符id类型的类或Block类型成员变量时
+
+4.在方法名中含有usingBlock的Cocoa框架方法或Grand Central Dispatch的API中传递Block时
+```
 
 9.`block`访问对象类型的`auto变量`时，在ARC和MRC下有什么区别
+```
+答：// MRC下，__block修饰的变量成为对象后，被block使用后没有强引用的关系，而ARC下有强引用的关系。
+```
 
 # 多线程
 
