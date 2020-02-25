@@ -371,6 +371,7 @@ NSNotification *notification = [NSNotification notificationWithName:kNotificatio
 5.完成了对观察对象的抽象，因为不需要额外的代码来允许观察值能够被观察
 缺点：
 1.复杂的“IF”语句要求对象正在观察多个值。这是因为所有的观察代码通过一个方法来指向；
+2.我们观察的属性必须使用strings来定义。因此在编译器不会出现警告以及检查；
 ```
 
 # Block
@@ -542,6 +543,9 @@ drawrect在以下情况会被调用：
 ```
 
 8.`imageName`与`imageWithContentsOfFile`的区别 多个相同的图片会重复加载吗
+```
+答：imageName获取的文件会缓存起来，相同的图片不会重复加载；imageWithContentsOfFile不会缓存，相同的图片会重复加载。
+```
 
 9.图片是什么时候解码的，如何优化
 ```
