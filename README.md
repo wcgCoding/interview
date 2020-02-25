@@ -491,27 +491,69 @@ dispatch_source_t精度很高，系统自动触发，系统级别的源。(YYTim
 # 视图图像相关
 
 1.`AutoLayout`的原理，性能如何
-
+```
+答：设置好约束后，AutoLayout会通过求解多元一次方程，得到view的frame再进行设置。性能没有直接设置frame效果好，随着视图嵌套的增加，性能下降厉害。
+```
 2.`UIView`与`CAlayer`的区别
+```
+答：UIView 是对CAlayer的封装，UIView是CAlayer的代理，前者可以响应事件，后者指负责绘制。
+1.首先UIView可以响应事件，CALayer不可以响应事件
+2.一个 Layer 的 frame 是由它的 anchorPoint,position,bounds,和 transform 共同决定的，而一个 View 的 frame 只是简单的返回 Layer的 frame
+3.UIView主要是对显示内容的管理而 CALayer 主要侧重显示内容的绘制
+4.在做 iOS 动画的时候，修改非 RootLayer的属性（譬如位置、背景色等）会默认产生隐式动画，而修改UIView则不会。
+```
 
 3.事件响应链
+```
+答：当事件发生时，必须知道谁来响应。再iOS中，又响应者链进行响应，所有事件响应的类都是UIResponder的子类，响应者链是一个由不同对象组成的层次结构，其中的每个对象将依次获得响应事件消息的机会。当发生事件时，事件首先被发送给第一响应者，第一响应者往往是事件发生的视图，也就是用户触摸屏幕的地方。事件将沿着响应者链一直向下传递，直到被接受并做出处理。事件响应链 是事件传递的反方向。
+
+First Responser -- > The Window -- >The Application -- > App Delegate
+```
 
 4.`drawrect`与`layoutsubviews`的调用时机
+```
+答：layoutsubviews 在以下情况会被调用：
+1.改变一个UIView的Frame会触发layoutSubviews，当然前提是frame的值设置前后发生了变化。
+2、滚动一个UIScrollView引发UIView的重新布局会触发layoutSubviews。
+3、旋转Screen会触发父UIView上的layoutSubviews事件。
+4、直接调用setNeedsLayout 或者 layoutIfNeeded。
+drawrect在以下情况会被调用：
+1.drawRect 掉用是在Controller->loadView, Controller->viewDidLoad 两方法之后掉用的.
+2.该方法在调用sizeToFit后被调用，所以可以先调用sizeToFit计算出size。然后系统自动调用drawRect:方法。
+3.通过设置contentMode属性值为UIViewContentModeRedraw。那么将在每次设置或更改frame的时候自动调用drawRect:。
+4.直接调用setNeedsDisplay，或者setNeedsDisplayInRect:触发drawRect:，但是有个前提条件是rect不能为0。
+```
 
 5.UI的刷新原理
+```
+答：CPU和GPU都是由总线连接起来的，在CPU输出的往往是一个位图，上传给GPU。GPU拿到位图之后，会做一个图层的渲染，包括纹理的合成，最后会把结果放到帧缓冲区中， 由视图控制器根据VSync信号（帧同步信号,表示扫描1帧的开始，一帧也就是LCD显示的一个画面。）在指定时间之前，在帧缓冲区当中提取对应显示内容，最后展示到屏幕显示器上。
+
+1.首先对于CPU来说，要完成UI的布局，包括显示或者说绘制，之后会做一些准备工作，最后会将位图提交到GPU上面。
+1).Layout：UI布局、文本计算 2).Display：绘制（drawRect）3).Prepare：图片编解码 4).Commit：提交位图
+
+```
 
 6.隐式动画与显示动画的区别
 
 7.什么是离屏渲染
+```
+答：离屏渲染就是GPU在当前屏幕缓冲区以外新开辟一个缓冲区进行渲染操作。当我们在设置某些UI视图的图层属性，如果说指令为在未预合成之前，不能用于直接显示的时候呢，那么就触发了离屏渲染。
+
+```
 
 8.`imageName`与`imageWithContentsOfFile`的区别 多个相同的图片会重复加载吗
 
 9.图片是什么时候解码的，如何优化
 
 10.图片渲染怎么优化
+```
+答：避免离屏渲染。因为在触发离屏渲染的时候，会增加 GPU 的工作量，而增加 GPU 的工作量很有可能会到导致CPU和GPU工作总耗时超出了16.7ms，那么可能就会导致UI的卡顿和掉帧，那么我们就要避免离屏渲染。
+```
 
 11.如果GPU的刷新率超过了iOS屏幕60Hz刷新率是什么现象，怎么解决
-
+```
+答：由于iOS 有垂直同步Vsync，所以超过60帧没有什么现象。
+```
 # 性能优化
 
 1.如何做启动优化、如何监控
