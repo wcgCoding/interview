@@ -621,16 +621,78 @@ drawrect在以下情况会被调用：
 1.`PerformSelector & NSInvocation`优劣对比
 
 2.`OC`如何实现多继承？怎么面向切面
+```
+答：通过协议实现多继承，
+```
 
 3.哪些`bug`会导致崩溃，如何防护崩溃
+```
+KVO/NSNotification/后台任务超时/内存爆满/主线程卡顿超阈值/数组越界/野指针
+答：1.方法找不到
+2.数组越界、插入空值
+3.字典初始化时，key和value数量不一致
+4.字典setObject:forKey: removeObjectForKey: key为nil时。
+5.使用kvc时 使用了错误的key。
+6.偏好设置的key为nil时
+7.字符串操作时，传入的下标超出范围。
+8.控件addView之前 使用autoLayout进行布局
+9.访问野指针
+10.死锁
+11.除0
+```
 
 4.怎么监控崩溃
+```
+1.有信号发出的监听信号
+void registerSignalHandler(void){
+    signal(SIGSEGV, handleSignalException);//试图访问未分配给自己的内存, 或试图往没有写权限的内存地址写数据.
+    signal(SIGFPE, handleSignalException);//在发生致命的算术运算错误时发出. 不仅包括浮点运算错误, 还包括溢出及除数为0等其它所有的算术的错误。
+    signal(SIGBUS, handleSignalException);//非法地址, 包括内存地址对齐(alignment)出错。比如访问一个四个字长的整数, 但其地址不是4的倍数。它与SIGSEGV的区别在于后者是由于对合法存储地址的非法访问触发的(如访问不属于自己存储空间或只读存储空间)。
+    signal(SIGPIPE, handleSignalException);//管道破裂。这个信号通常在进程间通信产生，比如采用FIFO(管道)通信的两个进程，读管道没打开或者意外终止就往管道写，写进程会收到SIGPIPE信号。此外用Socket通信的两个进程，写进程在写Socket的时候，读进程已经终止
+    signal(SIGHUP, handleSignalException);//本信号在用户终端连接(正常或非正常)结束时发出, 通常是在终端的控制进程结束时, 通知同一session内的各个作业, 这时它们与控制终端不再关联。登录Linux时，系统会分配给登录用户一个终端(Session)。在这个终端运行的所有程序，包括前台进程组和后台进程组，一般都属于这个 Session。当用户退出Linux登录时，前台进程组和后台有对终端输出的进程将会收到SIGHUP信号。这个信号的默认操作为终止进程，因此前台进 程组和后台有终端输出的进程就会中止。不过可以捕获这个信号，比如wget能捕获SIGHUP信号，并忽略它，这样就算退出了Linux登录， wget也 能继续下载。此外，对于与终端脱离关系的守护进程，这个信号用于通知它重新读取配置文件。
+    signal(SIGINT, handleSignalException);//程序终止(interrupt)信号, 在用户键入INTR字符(通常是Ctrl-C)时发出，用于通知前台进  程组终止进程。
+    signal(SIGQUIT, handleSignalException);//和SIGINT类似, 但由QUIT字符(通常是Ctrl-)来控制. 进程在因收到SIGQUIT退出时会产生core文件, 在这个意义上类似于一个程序错误信号。
+    signal(SIGABRT, handleSignalException);//调用abort函数生成的信号。
+    signal(SIGILL, handleSignalException);//执行了非法指令. 通常是因为可执行文件本身出现错误, 或者试图执行数据段. 堆栈溢出时也有可能产生这个信号。
+}
+2.没有信号发出的，就在监听崩溃的临界点记录信息。
+baginBackgroundTaskWithExpirationHandler
+可以根据beginBackgroundTaskWithExpirationHandler会让后台包活三分钟,先设置一个定时器,在接近三分钟的时候判断后台程序是否还在执行,如果还在执行的话,我们就可以判断该程序即将后台崩溃,进行上报记录,已达到监控的效果
+```
 
 5.app的启动过程（考察LLVM的编译过程、静态链接、动态链接、runtime初始化）
+```
+答：1.加载dyld到App进程
+2.加载动态库（包括所依赖的所有动态库）
+3.Rebase
+4.Bind
+5.初始化Objective C Runtime
+6.其它的初始化代码
+```
 
 6.沙盒目录的每个文件夹划分的作用
+```
+答：Document: 常用目录，iCloud备份目录，您应该将所有的应用程序数据文件写入到这个目录下。这个目录用于存储用户数据。
+
+Library: 包含两个子目录（caches/Preferences）。
+1.Preferences 包含应用程序的偏好设置文件。您不应该直接创建偏好设置文件，而是应该使用NSUserDefaults类来取得和设置应用程序的偏好.
+2.Caches 用于存放应用程序专用的支持文件，保存应用程序再次启动过程中需要的信息。
+可创建子文件夹。可以用来放置您希望被备份但不希望被用户看到的数据。该路径下的文件夹，除Caches以外，都会被iTunes备份。
+
+Temp: 这个目录用于存放临时文件，保存应用程序再次启动过程中不需要的信息。该路径下的文件不会被iTunes备份。
+```
 
 7.简述下`match-o`的文件结构
+```
+答：包含三个部分：
+1.header头部，包含可以执行的CPU架构，比如x86，arm64
+2.Load Commands 加载命令，包含文件的组织架构和在虚拟内存中的布局方式
+3.Data 数据，包含load commands中需要的各个段(segment)的数据，每个Segment的大小都是Page的整数倍。
+
+__TEXT代码段，只读，包含函数，和只读的字符串，上图中类似__TEXT,__text的都是代码段
+__Data数据段，读写，包括可读写的全局变量等，__DATA,__data都是数据段
+__LINKEDIT包含了方法和变量的元数据(位置，偏移量)，以及代码签名等信息。
+```
 
 # 系统基础知识
 
